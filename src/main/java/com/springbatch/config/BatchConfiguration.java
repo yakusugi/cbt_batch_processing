@@ -6,6 +6,7 @@ import com.springbatch.domain.UserSpending;
 import com.springbatch.domain.UserSpendingRowMapper;
 import com.springbatch.tasklet.CurrencyExchangeApiTasklet;
 import com.springbatch.tasklet.ExitCodeCheckingTasklet;
+import com.springbatch.tasklet.LatestFileTasklet;
 import com.springbatch.utility.FileNameSettingListener;
 import com.springbatch.validation.EmailValidation;
 
@@ -42,6 +43,7 @@ import org.springframework.batch.item.ItemStreamReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -64,7 +66,14 @@ public class BatchConfiguration {
 	@Autowired
 	public DataSource dataSource;
 
-	// Validation check (currency exist)
+	@Autowired
+	private LatestFileTasklet latestFileTasklet;
+
+    public BatchConfiguration(LatestFileTasklet latestFileTasklet) {
+        this.latestFileTasklet = latestFileTasklet;
+    }
+
+    // Validation check (currency exist)
 	@Bean
 	@JobScope
 	public ItemStreamReader<UserSpending> currencyExistingValidation(
@@ -99,8 +108,10 @@ public class BatchConfiguration {
 	// currency calc and sum
 	@Bean
 	@JobScope
-	public ItemStreamReader<UserSpending> targetCurrencyCsv(@Value("#{jobParameters['email']}") String email,
-			@Value("#{jobParameters['dateFrom']}") Date dateFrom, @Value("#{jobParameters['dateTo']}") Date dateTo,
+	public ItemStreamReader<UserSpending> targetCurrencyCsv(
+			@Value("#{jobParameters['email']}") String email,
+			@Value("#{jobParameters['dateFrom']}") Date dateFrom,
+			@Value("#{jobParameters['dateTo']}") Date dateTo,
 			@Value("#{jobParameters['targetCurrencyCode']}") String targetCurrencyCode
 
 	) {
@@ -169,39 +180,43 @@ public class BatchConfiguration {
 	
 	@Bean
 	@JobScope
-	public FlatFileItemReader<UserSpending> csvFileItemReader() {
-	    FlatFileItemReader<UserSpending> reader = new FlatFileItemReader<>();
-	    reader.setResource(new FileSystemResource("src/main/resources/data/Product_Details_Output9.csv"));
+	public FlatFileItemReader<UserSpending> csvFileItemReader() throws Exception {
+        FlatFileItemReader<UserSpending> reader = new FlatFileItemReader<>();
 
-	    DelimitedLineTokenizer lineTokenizer = new DelimitedLineTokenizer();
-	    lineTokenizer.setDelimiter(",");
-	    lineTokenizer.setNames(new String[]{"spendingId", "email", "spendingDate", "storeName", "productName",
-	            "productType", "vatRate", "price", "note", "currencyCode", "quantity"});
+        latestFileTasklet.execute(null, null);
+        Path latestFilePath = latestFileTasklet.getLatestFilePath();
+        String latestFileName = null;
+        if (latestFilePath != null) {
+            System.out.println("Latest file to process: " + latestFilePath.getFileName());
+            // Add your processing logic here
+            latestFileName = latestFileTasklet.getLatestFileName();
+        } else {
+            System.out.println("No latest file found to process.");
+        }
 
-	    BeanWrapperFieldSetMapper<UserSpending> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
-	    fieldSetMapper.setTargetType(UserSpending.class);
+		System.out.println("test333 src/main/resources/data/" + latestFileName);
+        reader.setResource(new FileSystemResource("src/main/resources/data/" + latestFileName));
 
-	    // Add a custom date editor to handle date parsing
-	    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-	    fieldSetMapper.setCustomEditors(Collections.singletonMap(Date.class, new CustomDateEditor(dateFormat, false)));
+        DelimitedLineTokenizer lineTokenizer = new DelimitedLineTokenizer();
+        lineTokenizer.setDelimiter(",");
+        lineTokenizer.setNames(new String[]{"spendingId", "email", "spendingDate", "storeName", "productName",
+                "productType", "vatRate", "price", "note", "currencyCode", "quantity"});
 
-	    DefaultLineMapper<UserSpending> lineMapper = new DefaultLineMapper<>();
-	    lineMapper.setLineTokenizer(lineTokenizer);
-	    lineMapper.setFieldSetMapper(fieldSetMapper);
+        BeanWrapperFieldSetMapper<UserSpending> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
+        fieldSetMapper.setTargetType(UserSpending.class);
 
-	    reader.setLineMapper(lineMapper);
+        // Add a custom date editor to handle date parsing
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        fieldSetMapper.setCustomEditors(Collections.singletonMap(Date.class, new CustomDateEditor(dateFormat, false)));
 
-	    return reader;
-	}
-	
-	
-	@Bean
-	public Step currencyExchangeStep() {
-	    return stepBuilderFactory.get("currencyExchangeStep")
-	            .tasklet(new CurrencyExchangeApiTasklet())
-	            .build();
-	}
+        DefaultLineMapper<UserSpending> lineMapper = new DefaultLineMapper<>();
+        lineMapper.setLineTokenizer(lineTokenizer);
+        lineMapper.setFieldSetMapper(fieldSetMapper);
 
+        reader.setLineMapper(lineMapper);
+
+        return reader;
+    }
 
 	// for reading
 	@Bean
@@ -225,7 +240,7 @@ public class BatchConfiguration {
 	}
 	
 	@Bean
-	public Step step3() {
+	public Step step3() throws Exception {
 	    return stepBuilderFactory.get("step3")
 	            .<UserSpending, UserSpending>chunk(10)
 	            .reader(csvFileItemReader())
@@ -237,13 +252,28 @@ public class BatchConfiguration {
 	            .build();
 	}
 
+	@Bean
+	public Step latestFileStep() {
+		return stepBuilderFactory.get("latestFileStep")
+				.tasklet(latestFileTasklet)
+				.build();
+	}
+
 
 	@Bean
-	public Job firstJob(Step step1, Step step2, Step step3, Step currencyExchangeStep) {
+	public Step currencyExchangeStep() {
+		return stepBuilderFactory.get("currencyExchangeStep")
+				.tasklet(new CurrencyExchangeApiTasklet())
+				.build();
+	}
+
+	@Bean
+	public Job firstJob(Step step1, Step step2, Step step3, Step latestFileStep, Step currencyExchangeStep) {
 		return this.jobBuilderFactory.get("job1")
 				.start(step1)
 				.next(step2)
 				.next(step3)
+				.next(latestFileStep)
 				.next(currencyExchangeStep)
 				.build();
 	}

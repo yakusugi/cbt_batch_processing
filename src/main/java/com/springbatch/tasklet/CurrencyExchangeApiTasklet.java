@@ -4,6 +4,7 @@ import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.CustomDateEditor;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+
+import java.nio.file.Path;
 import java.util.Collections;
 
 //... [Other imports and class declaration]
@@ -44,15 +47,14 @@ import java.util.Date;
 
 public class CurrencyExchangeApiTasklet implements Tasklet {
 
+    @Autowired
+    private LatestFileTasklet latestFileTasklet;
+
+
     private final String apiKey = "GHSOg6VcH44yR9oKUQBm19JPhoGbq0mD";
     
     @Value("#{jobExecutionContext['csvFileName']}")
     private String csvFileName;
-    
-//    @Bean
-//    public FileNameSettingListener fileNameSettingListener() {
-//        return new FileNameSettingListener();
-//    }
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
@@ -60,10 +62,21 @@ public class CurrencyExchangeApiTasklet implements Tasklet {
         String targetCurrencyCode = (String) chunkContext.getStepContext().getJobParameters().get("targetCurrencyCode");
         Double convertedPrice = 0.0;
 
+        latestFileTasklet.execute(null, null);
+        Path latestFilePath = latestFileTasklet.getLatestFilePath();
+        String latestFileName = null;
+        if (latestFilePath != null) {
+            System.out.println("Latest file to process: " + latestFilePath.getFileName());
+            // Add your processing logic here
+            latestFileName = latestFileTasklet.getLatestFileName();
+        } else {
+            System.out.println("No latest file found to process.");
+        }
+
         // Setting up the reader for the CSV file
         FlatFileItemReader<UserSpending> reader = new FlatFileItemReader<>();
 //        reader.setResource(new FileSystemResource("src/main/resources/data/Product_Details_Output9.csv"));
-        reader.setResource(new FileSystemResource(csvFileName));
+        reader.setResource(new FileSystemResource(latestFileName));
         reader.setLineMapper(getLineMapper());
         reader.open(chunkContext.getStepContext().getStepExecution().getExecutionContext());
 

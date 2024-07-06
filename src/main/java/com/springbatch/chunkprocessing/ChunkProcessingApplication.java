@@ -2,8 +2,7 @@ package com.springbatch.chunkprocessing;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication(scanBasePackages = { "com.springbatch.controller", "com.springbatch.config", "com.springbatch.validation" , "com.springbatch.utility"})
+@SpringBootApplication(scanBasePackages = { "com.springbatch.controller", "com.springbatch.config", "com.springbatch.validation" , "com.springbatch.utility", "com.springbatch.tasklet"})
 public class ChunkProcessingApplication {
 
 	public static void main(String[] args) {
