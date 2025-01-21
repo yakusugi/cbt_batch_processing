@@ -17,7 +17,6 @@ public class LatestFileTasklet implements Tasklet {
     String latestFileName;
 
     String sourceCurrencyCode;
-
     private Path latestFilePath;
 
     @Override
@@ -26,16 +25,19 @@ public class LatestFileTasklet implements Tasklet {
         Path directory = Paths.get("src/main/resources/data");
         Optional<Path> latestFile = FileUtil.getLatestFile(directory);
 
-        latestFile.ifPresent(path -> {
-            System.out.println("Processing latest file: " + path.getFileName());
-            // Add your file processing logic here
-            latestFileName = String.valueOf(path.getFileName());
-            String sourceCurrencyCode;
+        if (latestFile.isPresent()) {
+            latestFilePath = latestFile.get();  // Update latestFilePath
+            latestFileName = latestFilePath.getFileName().toString();  // Update latestFileName
 
-        });
+            System.out.println("Processing latest file: " + latestFileName);
+            System.out.println("Latest File Name: " + latestFileName);
 
-//        chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext().put("latestFileName", latestFileName);
-
+            // Optionally, store this information in the execution context for later steps
+            chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext().put("latestFileName", latestFileName);
+//            chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext().put("latestFilePath", latestFilePath.toString());
+        } else {
+            System.out.println("No files found in the directory: " + directory);
+        }
         return RepeatStatus.FINISHED;
     }
 

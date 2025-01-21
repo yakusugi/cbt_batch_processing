@@ -12,15 +12,10 @@ import com.springbatch.validation.EmailValidation;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.JobScope;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.*;
+import org.springframework.batch.core.scope.context.StepSynchronizationManager;
 import org.springframework.batch.core.step.tasklet.TaskletStep;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemStreamReader;
-import org.springframework.batch.item.ItemStreamWriter;
-import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.*;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.FlatFileItemWriter;
@@ -177,46 +172,42 @@ public class BatchConfiguration {
 
 		return itemWriter;
 	}
-	
+
 	@Bean
-	@JobScope
+	@StepScope
 	public FlatFileItemReader<UserSpending> csvFileItemReader() throws Exception {
-        FlatFileItemReader<UserSpending> reader = new FlatFileItemReader<>();
+		FlatFileItemReader<UserSpending> reader = new FlatFileItemReader<>();
 
-        latestFileTasklet.execute(null, null);
-        Path latestFilePath = latestFileTasklet.getLatestFilePath();
-        String latestFileName = null;
-        if (latestFilePath != null) {
-            System.out.println("Latest file to process: " + latestFilePath.getFileName());
-            // Add your processing logic here
-            latestFileName = latestFileTasklet.getLatestFileName();
-        } else {
-            System.out.println("No latest file found to process.");
-        }
+		// Explicitly call LatestFileTasklet to get the latest file name
+		latestFileTasklet.execute(null, null); // Execute the tasklet
+		String latestFileName = latestFileTasklet.getLatestFileName(); // Fetch the latest file name
 
-		System.out.println("test333 src/main/resources/data/" + latestFileName);
-        reader.setResource(new FileSystemResource("src/main/resources/data/" + latestFileName));
+		if (latestFileName != null && !latestFileName.isEmpty()) {
+			System.out.println("Latest file to process: " + latestFileName);
+			reader.setResource(new FileSystemResource("src/main/resources/data/" + latestFileName));
+		} else {
+			throw new IllegalStateException("No latest file found in ExecutionContext.");
+		}
 
-        DelimitedLineTokenizer lineTokenizer = new DelimitedLineTokenizer();
-        lineTokenizer.setDelimiter(",");
-        lineTokenizer.setNames(new String[]{"spendingId", "email", "spendingDate", "storeName", "productName",
-                "productType", "vatRate", "price", "note", "currencyCode", "quantity"});
+		DelimitedLineTokenizer lineTokenizer = new DelimitedLineTokenizer();
+		lineTokenizer.setDelimiter(",");
+		lineTokenizer.setNames(new String[] { "spendingId", "email", "spendingDate", "storeName", "productName",
+				"productType", "vatRate", "price", "note", "currencyCode", "quantity" });
 
-        BeanWrapperFieldSetMapper<UserSpending> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
-        fieldSetMapper.setTargetType(UserSpending.class);
+		BeanWrapperFieldSetMapper<UserSpending> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
+		fieldSetMapper.setTargetType(UserSpending.class);
 
-        // Add a custom date editor to handle date parsing
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        fieldSetMapper.setCustomEditors(Collections.singletonMap(Date.class, new CustomDateEditor(dateFormat, false)));
+		DefaultLineMapper<UserSpending> lineMapper = new DefaultLineMapper<>();
+		lineMapper.setLineTokenizer(lineTokenizer);
+		lineMapper.setFieldSetMapper(fieldSetMapper);
 
-        DefaultLineMapper<UserSpending> lineMapper = new DefaultLineMapper<>();
-        lineMapper.setLineTokenizer(lineTokenizer);
-        lineMapper.setFieldSetMapper(fieldSetMapper);
+		reader.setLineMapper(lineMapper);
 
-        reader.setLineMapper(lineMapper);
+		return reader;
+	}
 
-        return reader;
-    }
+
+
 
 	// for reading
 	@Bean
@@ -270,9 +261,10 @@ public class BatchConfiguration {
 	@Bean
 	public Job firstJob(Step step1, Step step2, Step step3, Step latestFileStep, Step currencyExchangeStep) {
 		return this.jobBuilderFactory.get("job1")
+				.start(latestFileStep)
+				.next(step3)
 				.start(step1)
 				.next(step2)
-				.next(step3)
 				.next(latestFileStep)
 				.next(currencyExchangeStep)
 				.build();
