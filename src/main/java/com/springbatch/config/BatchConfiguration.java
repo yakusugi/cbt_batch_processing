@@ -258,15 +258,32 @@ public class BatchConfiguration {
 				.build();
 	}
 
+//	@Bean
+//	public Job firstJob(Step step1, Step step2, Step step3, Step latestFileStep, Step currencyExchangeStep) {
+//		return this.jobBuilderFactory.get("job1")
+//				.start(latestFileStep)
+//				.next(step3)
+//				.start(step1)
+//				.next(step2)
+//				.next(latestFileStep)
+//				.next(currencyExchangeStep)
+//				.build();
+//	}
+
+//	@Bean
+//	public Job firstJob(Step step1, Step step2, Step step3) {
+//		return this.jobBuilderFactory.get("job1")
+//				.start(step1)
+//				.next(step2)
+//				.next(step3)
+//				.build();
+//	}
+
 	@Bean
-	public Job firstJob(Step step1, Step step2, Step step3, Step latestFileStep, Step currencyExchangeStep) {
+	public Job firstJob(Step step1, Step step2) {
 		return this.jobBuilderFactory.get("job1")
-				.start(latestFileStep)
-				.next(step3)
 				.start(step1)
 				.next(step2)
-				.next(latestFileStep)
-				.next(currencyExchangeStep)
 				.build();
 	}
 }
