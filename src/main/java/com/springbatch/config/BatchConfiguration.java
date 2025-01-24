@@ -144,18 +144,9 @@ public class BatchConfiguration {
 	@JobScope
 	public ItemStreamWriter<UserSpending> flatFileItemWriter(FileNameSettingListener fileNameSettingListener) throws Exception {
 		FlatFileItemWriter<UserSpending> itemWriter = new FlatFileItemWriter<>();
-//		itemWriter.setResource(new FileSystemResource("src/main/resources/data/Product_Details_Output9.csv"));
-		
-		// Format the current date and time
-//        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-//        String formattedDate = dateFormat.format(new Date());
-//        String fileName = "src/main/resources/data/Product_Details_" + formattedDate + ".csv";
 		
 		String fileName = fileNameSettingListener.getFileName();
 	    itemWriter.setResource(new FileSystemResource(fileName));
-        
-     // Set the resource to a new file with the formatted date in its name
-//        itemWriter.setResource(new FileSystemResource("src/main/resources/data/Product_Details_" + formattedDate + ".csv"));
 
 		DelimitedLineAggregator<UserSpending> lineAggregator = new DelimitedLineAggregator<>();
 		lineAggregator.setDelimiter(",");
@@ -167,8 +158,6 @@ public class BatchConfiguration {
 		lineAggregator.setFieldExtractor(fieldExtractor);
 
 		itemWriter.setLineAggregator(lineAggregator);
-		
-//		stepExecution.getExecutionContext().putString("csvFileName", fileName);
 
 		return itemWriter;
 	}
@@ -257,27 +246,6 @@ public class BatchConfiguration {
 				.tasklet(new CurrencyExchangeApiTasklet())
 				.build();
 	}
-
-//	@Bean
-//	public Job firstJob(Step step1, Step step2, Step step3, Step latestFileStep, Step currencyExchangeStep) {
-//		return this.jobBuilderFactory.get("job1")
-//				.start(latestFileStep)
-//				.next(step3)
-//				.start(step1)
-//				.next(step2)
-//				.next(latestFileStep)
-//				.next(currencyExchangeStep)
-//				.build();
-//	}
-
-//	@Bean
-//	public Job firstJob(Step step1, Step step2, Step step3) {
-//		return this.jobBuilderFactory.get("job1")
-//				.start(step1)
-//				.next(step2)
-//				.next(step3)
-//				.build();
-//	}
 
 	@Bean
 	public Job firstJob(Step step1, Step step2) {
