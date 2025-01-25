@@ -23,10 +23,9 @@ public class JobLaunchController {
 	@Qualifier("firstJob")
 	private Job job;
 	
-	@GetMapping("/launchJob/{email}/{sourceCurrencyCode}/{targetCurrencyCode}/{dateFrom}/{dateTo}")
+	@GetMapping("/launchJob/{email}/{targetCurrencyCode}/{dateFrom}/{dateTo}")
 	public void handle(
 			@PathVariable("email") String email,
-			@PathVariable("sourceCurrencyCode") String sourceCurrencyCode,
 			@PathVariable("targetCurrencyCode") String targetCurrencyCode,
 			@PathVariable("dateFrom") String dateFromString,
 	        @PathVariable("dateTo") String dateToString
@@ -38,7 +37,6 @@ public class JobLaunchController {
 		
 		JobParameters jobParameters = new JobParametersBuilder()
 				.addString("email", email)
-				.addString("sourceCurrencyCode", sourceCurrencyCode)
 				.addString("targetCurrencyCode", targetCurrencyCode)
 				.addDate("dateFrom", dateFrom)
 				.addDate("dateTo", dateTo)

@@ -16,7 +16,6 @@ public class LatestFileTasklet implements Tasklet {
 
     String latestFileName;
 
-    String sourceCurrencyCode;
     private Path latestFilePath;
 
     @Override

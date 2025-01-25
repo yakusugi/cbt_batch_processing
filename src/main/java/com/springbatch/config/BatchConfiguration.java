@@ -4,17 +4,11 @@ package com.springbatch.config;
 
 import com.springbatch.domain.UserSpending;
 import com.springbatch.domain.UserSpendingRowMapper;
-import com.springbatch.tasklet.CurrencyExchangeApiTasklet;
-import com.springbatch.tasklet.ExitCodeCheckingTasklet;
 import com.springbatch.tasklet.LatestFileTasklet;
 import com.springbatch.utility.FileNameSettingListener;
-import com.springbatch.validation.EmailValidation;
-
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.*;
-import org.springframework.batch.core.scope.context.StepSynchronizationManager;
-import org.springframework.batch.core.step.tasklet.TaskletStep;
 import org.springframework.batch.item.*;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -27,7 +21,6 @@ import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.propertyeditors.CustomDateEditor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -38,14 +31,9 @@ import org.springframework.batch.item.ItemStreamReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Path;
 import java.text.SimpleDateFormat;
-import java.util.Collections;
 import java.util.Date;
 import java.util.stream.Collectors;
-
-import javax.batch.api.chunk.ItemProcessor;
-import javax.batch.runtime.StepExecution;
 import javax.sql.DataSource;
 
 @Configuration
@@ -73,19 +61,16 @@ public class BatchConfiguration {
 	@JobScope
 	public ItemStreamReader<UserSpending> currencyExistingValidation(
 			@Value("#{jobParameters['email']}") String email,
-			@Value("#{jobParameters['sourceCurrencyCode']}") String sourceCurrencyCode,
 			@Value("#{jobParameters['targetCurrencyCode']}") String targetCurrencyCode) {
 
 		JdbcCursorItemReader<UserSpending> itemReader = new JdbcCursorItemReader<>();
 		itemReader.setDataSource(dataSource);
-		itemReader.setSql(getSqlFromFileForValidation("sql/user_spending_query.sql", email, sourceCurrencyCode,
-				targetCurrencyCode));
+		itemReader.setSql(getSqlFromFileForValidation("sql/user_spending_query.sql", email, targetCurrencyCode));
 		itemReader.setRowMapper(new UserSpendingRowMapper());
 		return itemReader;
 	}
 
-	private String getSqlFromFileForValidation(String filePath, String email, String sourceCurrencyCode,
-			String targetCurrencyCode) {
+	private String getSqlFromFileForValidation(String filePath, String email, String targetCurrencyCode) {
 		// Load SQL from file
 		Resource resource = new ClassPathResource(filePath);
 		String sqlTemplate = null;
@@ -97,7 +82,7 @@ public class BatchConfiguration {
 		}
 
 		// Replace placeholders with actual values
-		return String.format(sqlTemplate, email, sourceCurrencyCode, targetCurrencyCode);
+		return String.format(sqlTemplate, email, targetCurrencyCode);
 	}
 
 	// currency calc and sum
@@ -236,14 +221,6 @@ public class BatchConfiguration {
 	public Step latestFileStep() {
 		return stepBuilderFactory.get("latestFileStep")
 				.tasklet(latestFileTasklet)
-				.build();
-	}
-
-
-	@Bean
-	public Step currencyExchangeStep() {
-		return stepBuilderFactory.get("currencyExchangeStep")
-				.tasklet(new CurrencyExchangeApiTasklet())
 				.build();
 	}
 
