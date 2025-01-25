@@ -20,11 +20,11 @@ public class FileNameSettingListener implements StepExecutionListener {
 
 	@Override
 	public void beforeStep(org.springframework.batch.core.StepExecution stepExecution) {
-		// TODO Auto-generated method stub
+        String targetCurrencyCode = stepExecution.getJobParameters().getString("targetCurrencyCode");
 		 // Generate the file name
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String formattedDate = dateFormat.format(new Date());
-        fileName = outputDirectory + "/Product_Details_" + formattedDate + ".csv";
+        fileName = outputDirectory + "/" + targetCurrencyCode + "_Product_Details_" + formattedDate + ".csv";
 
         // Store the file name in the execution context
         stepExecution.getExecutionContext().putString("csvFileName", fileName);
